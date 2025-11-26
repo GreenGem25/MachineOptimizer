@@ -1,0 +1,46 @@
+def minimizeBrute(a_, b_, c_, d_, n_, m_):
+    """
+    Минимизация с помощью простого перебора
+    """
+    best_x = None
+    best_value = float('inf')
+
+    # Генерируем все возможные комбинации станков
+    for comb in range(2 ** n_):
+        x_current = [int(bit) for bit in format(comb, f'0{n_}b')]
+
+        # Проверяем ограничения
+        if checkRestrictions(x_current, a_, b_, c_, d_, n_, m_):
+            # Вычисляем целевую функцию
+            current_value = 0
+            for j in range(n_):
+                current_value += x_current[j] * c_[j]
+                for i in range(m_):
+                    current_value += x_current[j] * a_[i][j] * d_[i][j]
+            # Ищем минимальное значение
+            if current_value < best_value:
+                best_value = current_value
+                best_x = x_current
+
+    return best_x, best_value
+
+
+def testSpeed(test_data):
+    print("===== Метод перебора =====")
+    start_time_brute = time.perf_counter()
+    result_brute = minimizeBrute(*test_data)
+    end_time_brute = time.perf_counter()
+    print(generateAnswer(*result_brute))
+    time_brute = end_time_brute - start_time_brute
+    print(f"Время выполнения: {time_brute:.9f} секунд\n")
+
+    print("===== Метод ветвей и границ =====")
+    start_time_bb = time.perf_counter()
+    result_bb = minimizeBranchAndBound(*test_data)
+    end_time_bb = time.perf_counter()
+    print(generateAnswer(*result_bb))
+    time_bb = end_time_bb - start_time_bb
+    print(f"Время выполнения: {time_bb:.9f} секунд\n")
+
+    speedup_percentage = ((time_brute - time_bb) / time_brute) * 100
+    print(f"Ускорение: {speedup_percentage:.1f}%")
