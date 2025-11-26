@@ -4,7 +4,13 @@ import time
 import argparse
 
 
-def checkRestrictions(x_, a_, b_, c_, d_, n_, m_):
+def checkRestrictions(x_: list[int],
+                      a_: list[list[int]],
+                      b_: list[int],
+                      c_: list[int],
+                      d_: list[list[int]],
+                      n_: int,
+                      m_: int, ) -> bool:
     """
     Функция проверки ограничений задачи
     """
@@ -27,14 +33,20 @@ def checkRestrictions(x_, a_, b_, c_, d_, n_, m_):
     return True
 
 
-def minimizeBranchAndBound(a_, b_, c_, d_, n_, m_, detailed=False):
+def minimizeBranchAndBound(a_: list[list[int]],
+                           b_: list[int],
+                           c_: list[int],
+                           d_: list[list[int]],
+                           n_: int,
+                           m_: int,
+                           detailed: bool = False):
     """
     Минимизация с помощью метода ветвей и границ
     """
     best_x = None
     best_value = float('inf')
 
-    def backtrack(current_idx, partial_solution, current_value):
+    def backtrack(current_idx: int, partial_solution: list[int], current_value: int) -> None:
         """
         Рекурсивная функция ветвления
         """
@@ -54,7 +66,7 @@ def minimizeBranchAndBound(a_, b_, c_, d_, n_, m_, detailed=False):
             print("Текущее значение:", current_value)
             print("Лучшее значение:", best_value)
 
-        # Отсечение, если нижняя граница хуже лучшего решения
+        # Отсечение, если текущее значение хуже лучшего
         if current_value >= best_value:
             if detailed: print("Отсечение.\n")
             return
@@ -70,13 +82,13 @@ def minimizeBranchAndBound(a_, b_, c_, d_, n_, m_, detailed=False):
         # Ветвление: x_j = 1
         partial_solution[current_idx] = 1
         # Вычисляем вклад переменной j как в целевой функции
-        contribution = c_[current_idx]
+        contribution = c_[current_idx]  # xj * cj
         for i in range(m_):
-            contribution += a_[i][current_idx] * d_[i][current_idx]
+            contribution += a_[i][current_idx] * d_[i][current_idx]  # xj * aij * dij
         new_value_1 = current_value + contribution
         backtrack(current_idx + 1, partial_solution, new_value_1)
 
-        # Backtrack
+        # Возвращение изначальному решению
         partial_solution[current_idx] = 0
 
     # Запускаем с начальным приближением 0
@@ -84,7 +96,7 @@ def minimizeBranchAndBound(a_, b_, c_, d_, n_, m_, detailed=False):
     return best_x, best_value
 
 
-def readJson(filename):
+def readJson(filename: str) -> (list[list[int]], list[int], list[int], list[list[int]], int, int):
     """
     Чтение данных из файла json
     """
@@ -131,12 +143,11 @@ def readJson(filename):
     return a, b, c, d, n, m
 
 
-def generateAnswer(machines, value):
+def generateAnswer(machines: list[int], value: int) -> str:
     """
     Генерация красивого ответа для консоли
     """
-    answer = []
-    answer.append("=== Решение ===\n")
+    answer = ["=== Решение ===\n"]
     for i in range(len(machines)):
         answer.append(f"Станок №{i + 1} ")
         answer.append("включен\n" if machines[i] == 1 else "отключен\n")
@@ -144,24 +155,34 @@ def generateAnswer(machines, value):
     return ''.join(answer)
 
 
-if __name__ == '__main__':
-    try:
-        filename = ""
-        showcase_mode = None
-        if len(sys.argv) > 1:
-            argParser = argparse.ArgumentParser("Machine Optimizer")
-            argParser.add_argument("-f", dest="filename", type=str, help="Path to file with task data",
-                                   required=True)
-            argParser.add_argument("-m", dest="showcase_mode", type=str, help="Use 'advanced' output or"
-                                                                              " 'normal' output", required=True)
-            args = argParser.parse_args()
-            showcase_mode = 1 if args.showcase_mode == "advanced" else 0 if args.showcase_mode == "normal" else -1
-            if showcase_mode == -1:
-                print("No such showcase mode")
-                exit(1)
-            filename = args.filename
-        else:
+def parseArgs() -> (str, int):
+    """
+    Парсинг аргументов приложения
+    """
+    if len(sys.argv) > 1:
+        argParser = argparse.ArgumentParser("Machine Optimizer")
+        argParser.add_argument("-f", dest="filename", type=str, help="Path to file with task data",
+                               required=True)
+        argParser.add_argument("-m", dest="showcase_mode", type=str, help="Use 'advanced' output or"
+                                                                          " 'normal' output", required=True)
+        args = argParser.parse_args()
+        showcase_mode = 1 if args.showcase_mode == "advanced" else 0 if args.showcase_mode == "normal" else -1
+        if showcase_mode == -1:
+            print("No such showcase mode")
             exit(1)
+        filename = args.filename
+    else:
+        exit(1)
+
+    return filename, showcase_mode
+
+
+def main() -> None:
+    """
+    Основная функция, запускающая все процессы приложения
+    """
+    try:
+        filename, showcase_mode = parseArgs()
         test_data = readJson(filename)
         print("=== Метод ветвей и границ ===")
         start_time = time.perf_counter()
@@ -171,3 +192,7 @@ if __name__ == '__main__':
 
     except Exception as e:
         print(e)
+
+
+if __name__ == '__main__':
+    main()
