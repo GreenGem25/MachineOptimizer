@@ -46,9 +46,6 @@ def minimizeBranchAndBoundModified(a_: list[list[int]],
     best_x = None
     best_value = float('inf')
 
-    # Предвычисления
-    coef = [c_[j] + sum(a_[i][j] * d_[i][j] for i in range(m_)) for j in range(n_)]
-
     def backtrack(level:int, used_indices: set, current_solution: list[int], current_value: int):
         nonlocal best_x, best_value
 
@@ -66,7 +63,10 @@ def minimizeBranchAndBoundModified(a_: list[list[int]],
 
         # Отсечение
         if current_value >= best_value:
+            if detailed: print("Отсечение.\n")
             return
+
+        if detailed: print()
 
         # Ветвление: добавляем одну новую переменную
         for j in range(n_):
@@ -77,7 +77,10 @@ def minimizeBranchAndBoundModified(a_: list[list[int]],
 
                 new_solution = current_solution.copy()
                 new_solution[j] = 1
-                new_value = current_value + coef[j]
+                contribution = c_[j]  # xj * cj
+                for i in range(m_):
+                    contribution += a_[i][j] * d_[i][j]  # xj * aij * dij
+                new_value = current_value + contribution
 
                 backtrack(level + 1, new_used, new_solution, new_value)
 
