@@ -24,6 +24,211 @@ def minimizeBrute(a_, b_, c_, d_, n_, m_):
 
     return best_x, best_value
 
+def minimizeBranchAndBoundModified(a_: list[list[int]],
+                                   b_: list[int],
+                                   c_: list[int],
+                                   d_: list[list[int]],
+                                   n_: int,
+                                   m_: int,
+                                   detailed: bool = False):
+    """
+    Минимизация с помощью метода ветвей и границ
+    """
+    best_x = None
+    best_value = float('inf')
+
+    def backtrack(level:int, used_indices: set, current_solution: list[int], current_value: int):
+        nonlocal best_x, best_value
+
+        # Проверяем текущее решение
+        if checkRestrictions(current_solution, a_, b_, c_, d_, n_, m_):
+            if current_value < best_value:
+                best_value = current_value
+                best_x = current_solution.copy()
+
+        if detailed:
+            print("Глубина:", level)
+            print("Текущее решение:", current_solution)
+            print("Текущее значение:", current_value)
+            print("Лучшее значение:", best_value)
+
+        # Отсечение
+        if current_value >= best_value:
+            if detailed: print("Отсечение.\n")
+            return
+
+        if detailed: print()
+
+        # Ветвление: добавляем одну новую переменную
+        for j in range(n_):
+            if j not in used_indices:
+                # Создаем новую ветку с добавлением переменной j
+                new_used = used_indices.copy()
+                new_used.add(j)
+
+                new_solution = current_solution.copy()
+                new_solution[j] = 1
+                contribution = c_[j]  # xj * cj
+                for i in range(m_):
+                    contribution += a_[i][j] * d_[i][j]  # xj * aij * dij
+                new_value = current_value + contribution
+
+                backtrack(level + 1, new_used, new_solution, new_value)
+
+    # Запускаем с пустым решением
+    backtrack(0, set(), [0] * n_, 0)
+    return best_x, best_value
+
+
+def compute_lower_bound(partial_solution, current_idx, current_value, a_, b_, c_, d_, n_, m_):
+    """
+    Вычисляет нижнюю границу для частичного решения
+    """
+    # 1. Копируем текущее значение как базовую оценку
+    lower_bound = current_value
+
+    # 2. Вычисляем, сколько продукции уже производится выбранными станками
+    production = [0] * m_  # production[i] - сколько уже производится деталей i-го вида
+
+    for j in range(current_idx):
+        if partial_solution[j] == 1:
+            for i in range(m_):
+                production[i] += a_[i][j]
+
+    # 3. Определяем, сколько деталей каждого вида еще нужно произвести
+    remaining_needs = [max(0, b_[i] - production[i]) for i in range(m_)]
+
+    # 4. Оцениваем минимальную стоимость выполнения оставшихся потребностей
+    # Для каждой детали i находим самый дешевый способ ее производства
+    # среди еще не рассмотренных станков
+
+    for i in range(m_):
+        if remaining_needs[i] > 0:
+            # Находим минимальную удельную стоимость среди оставшихся станков
+            min_cost_per_unit = float('inf')
+
+            for j in range(current_idx, n_):
+                if a_[i][j] > 0:  # Станок может производить эту деталь
+                    # Удельная стоимость = (стоимость станка + стоимость производства) / производительность
+                    # Но нужно аккуратно учесть, что станок может производить несколько видов деталей
+
+                    # Простая эвристика: берем только стоимость производства
+                    cost_per_unit = d_[i][j]
+
+                    if cost_per_unit < min_cost_per_unit:
+                        min_cost_per_unit = cost_per_unit
+
+            if min_cost_per_unit < float('inf'):
+                # Оптимистичная оценка: предполагаем, что можем использовать самый дешевый способ
+                lower_bound += remaining_needs[i] * min_cost_per_unit
+            else:
+                # Если какой-то вид деталей не может быть произведен оставшимися станками
+                return float('inf')  # Недопустимое решение
+
+    return lower_bound
+
+
+
+
+def minimizeBranchAndBound_improved(a_: list[list[int]],
+                                    b_: list[int],
+                                    c_: list[int],
+                                    d_: list[list[int]],
+                                    n_: int,
+                                    m_: int,
+                                    detailed: bool = False):
+    """
+    Минимизация с помощью метода ветвей и границ с нижними границами
+    """
+    best_x = None
+    best_value = float('inf')
+
+    # Предварительно вычисляем полезную информацию для эвристик
+    # Например, отсортируем станки по "эффективности"
+
+    def backtrack(current_idx: int, partial_solution: list[int], current_value: int) -> None:
+        nonlocal best_x, best_value
+
+        # Базовый случай: рассмотрены все переменные
+        if current_idx == n_:
+            if checkRestrictions(partial_solution, a_, b_, c_, d_, n_, m_):
+                if current_value < best_value:
+                    best_value = current_value
+                    best_x = partial_solution.copy()
+                    if detailed:
+                        print(f"Найдено новое лучшее решение: {best_value}")
+            return
+
+        if detailed:
+            print(f"\nГлубина: {current_idx}")
+            print(f"Текущее решение: {partial_solution[:current_idx]}")
+            print(f"Текущее значение: {current_value}")
+            print(f"Лучшее значение: {best_value}")
+
+        # 1. Вычисляем нижнюю границу для этой ветви
+        lower_bound = compute_lower_bound(partial_solution, current_idx,
+                                          current_value, a_, b_, c_, d_, n_, m_)
+
+        # 2. Отсечение по нижней границе
+        if lower_bound >= best_value:
+            if detailed:
+                print(f"Отсечение по нижней границе: {lower_bound} >= {best_value}")
+            return
+
+        if detailed:
+            print(f"Нижняя граница: {lower_bound}")
+
+        # 3. Эвристика: сначала пробуем более перспективные ветви
+        # Вычисляем "полезность" станка
+        station_value = c_[current_idx]
+        for i in range(m_):
+            station_value += a_[i][current_idx] * d_[i][current_idx]
+
+        # Чем меньше стоимость и выше производительность, тем станок "полезнее"
+        total_productivity = sum(a_[i][current_idx] for i in range(m_))
+        if total_productivity > 0:
+            efficiency = station_value / total_productivity
+        else:
+            efficiency = float('inf')
+
+        # Пробуем сначала ветвь, которая кажется более перспективной
+        # Если станк эффективный, пробуем сначала взять его (x=1)
+        # Если неэффективный - сначала не брать (x=0)
+
+        if efficiency < 1000:  # Порог эффективности, можно настроить
+            # Сначала пробуем x_j = 1
+            partial_solution[current_idx] = 1
+            contribution = c_[current_idx]
+            for i in range(m_):
+                contribution += a_[i][current_idx] * d_[i][current_idx]
+            new_value_1 = current_value + contribution
+            backtrack(current_idx + 1, partial_solution, new_value_1)
+
+            # Затем x_j = 0
+            partial_solution[current_idx] = 0
+            backtrack(current_idx + 1, partial_solution, current_value)
+        else:
+            # Сначала пробуем x_j = 0
+            partial_solution[current_idx] = 0
+            backtrack(current_idx + 1, partial_solution, current_value)
+
+            # Затем x_j = 1
+            partial_solution[current_idx] = 1
+            contribution = c_[current_idx]
+            for i in range(m_):
+                contribution += a_[i][current_idx] * d_[i][current_idx]
+            new_value_1 = current_value + contribution
+            backtrack(current_idx + 1, partial_solution, new_value_1)
+
+        # Возвращаем к исходному состоянию
+        partial_solution[current_idx] = 0
+
+    # Запускаем алгоритм
+    backtrack(0, [0] * n_, 0)
+    return best_x, best_value
+
+
+
 
 def testSpeed(test_data):
     print("===== Метод перебора =====")

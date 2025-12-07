@@ -33,62 +33,6 @@ def checkRestrictions(x_: list[int],
     return True
 
 
-def minimizeBranchAndBoundModified(a_: list[list[int]],
-                                   b_: list[int],
-                                   c_: list[int],
-                                   d_: list[list[int]],
-                                   n_: int,
-                                   m_: int,
-                                   detailed: bool = False):
-    """
-    Минимизация с помощью метода ветвей и границ
-    """
-    best_x = None
-    best_value = float('inf')
-
-    def backtrack(level:int, used_indices: set, current_solution: list[int], current_value: int):
-        nonlocal best_x, best_value
-
-        # Проверяем текущее решение
-        if checkRestrictions(current_solution, a_, b_, c_, d_, n_, m_):
-            if current_value < best_value:
-                best_value = current_value
-                best_x = current_solution.copy()
-
-        if detailed:
-            print("Глубина:", level)
-            print("Текущее решение:", current_solution)
-            print("Текущее значение:", current_value)
-            print("Лучшее значение:", best_value)
-
-        # Отсечение
-        if current_value >= best_value:
-            if detailed: print("Отсечение.\n")
-            return
-
-        if detailed: print()
-
-        # Ветвление: добавляем одну новую переменную
-        for j in range(n_):
-            if j not in used_indices:
-                # Создаем новую ветку с добавлением переменной j
-                new_used = used_indices.copy()
-                new_used.add(j)
-
-                new_solution = current_solution.copy()
-                new_solution[j] = 1
-                contribution = c_[j]  # xj * cj
-                for i in range(m_):
-                    contribution += a_[i][j] * d_[i][j]  # xj * aij * dij
-                new_value = current_value + contribution
-
-                backtrack(level + 1, new_used, new_solution, new_value)
-
-    # Запускаем с пустым решением
-    backtrack(0, set(), [0] * n_, 0)
-    return best_x, best_value
-
-
 def minimizeBranchAndBound(a_: list[list[int]],
                            b_: list[int],
                            c_: list[int],
@@ -117,14 +61,14 @@ def minimizeBranchAndBound(a_: list[list[int]],
             return
 
         if detailed:
-            print("Глубина:", current_idx)
-            print("Текущее решение:", partial_solution)
-            print("Текущее значение:", current_value)
-            print("Лучшее значение:", best_value)
+            print("Глубина:", current_idx, end=', ')
+            print("Решение:", partial_solution, end=', ')
+            print("Значение:", current_value, end=', ')
+            print("Лучшее:", best_value, end='')
 
         # Отсечение, если текущее значение хуже лучшего
         if current_value >= best_value:
-            if detailed: print("Отсечение.\n")
+            if detailed: print(", Отсечение.")
             return
 
         if detailed: print()
@@ -244,11 +188,6 @@ def main() -> None:
         print("С разбиением на две ветки:")
         start_time = time.perf_counter()
         print(generateAnswer(*minimizeBranchAndBound(*test_data, showcase_mode)))
-        end_time = time.perf_counter()
-        print(f"Время работы: {(end_time - start_time):.9f} секунд")
-        print("\nС разбиением на несколько веток:")
-        start_time = time.perf_counter()
-        print(generateAnswer(*minimizeBranchAndBoundModified(*test_data, showcase_mode)))
         end_time = time.perf_counter()
         print(f"Время работы: {(end_time - start_time):.9f} секунд")
 
